@@ -115,7 +115,18 @@ The meaning of each parameter should be obvious. Keep in mind the following cave
 4. Where applicable, each parameter in tile file has the expected measure unit
    appended to the name, e.g., `prec_period_min` (the precession period) must be
    specified in minutes.
+5. The parameter file used as input is saved in each FITS produced by the
+   program, as a n×1 matrix of bytes.
 
+To read the parameter file out of the primary HDU of a FITS file, you can use
+something like this:
+
+`````python
+from astropy.io import fits
+
+with fits.open('file.fits') as f:
+    print(''.join([chr(x) for x in f[0].data]))
+`````
 
 ## License
 

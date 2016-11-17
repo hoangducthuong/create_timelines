@@ -7,6 +7,7 @@
 from collections import namedtuple
 from configparser import ConfigParser
 from typing import Any, Dict, List, Union
+import io
 import logging as log
 import os
 import sys
@@ -50,7 +51,8 @@ Configuration = namedtuple('Configuration',
                             'gap_width_hours',
                             'chunks_per_obs',
                             'num_obs',
-                            'sky_map'])
+                            'sky_map',
+                            'param_file_contents'])
 
 ################################################################################
 
@@ -85,6 +87,13 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
         # Step 3: build the global "Configuration" object
         scanning = conf_file['scanning_strategy']
         sky_model = conf_file['sky_model']
+
+        # Save a copy of the parameter file into the Configuration object
+        param_file_contents = io.StringIO()
+        conf_file.write(param_file_contents)
+        param_file_contents = np.array(
+            list(param_file_contents.getvalue().encode('utf-8')))
+
         result = Configuration(detectors=detectors,
                                sample_rate_Hz=scanning.getfloat('sample_rate_Hz'),
                                spin_period_min=scanning.getfloat('spin_period_min'),
@@ -96,7 +105,8 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
                                gap_width_hours=scanning.getfloat('gap_width_hours'),
                                chunks_per_obs=scanning.getint('chunks_per_observation'),
                                num_obs=scanning.getint('num_of_observations'),
-                               sky_map=sky_model.get('sky_map'))
+                               sky_map=sky_model.get('sky_map'),
+                               param_file_contents=param_file_contents)
     except KeyError as err:
         log.error('section/key not found: %s', err)
         sys.exit(1)
@@ -324,7 +334,13 @@ def main(parameter_file, outdir):
         output_file = os.path.join(outdir,
                                    ('tod_{0}_mpi{1:04d}.fits'
                                     .format(det.name, comm.comm_world.rank)))
-        hdu.writeto(output_file, clobber=True)
+
+        # Save a copy of the parameter file into the primary HDU of the file,
+        # so that it will be always possible to know the value of the input parameters
+        # used to create it
+        prim_hdu = fits.PrimaryHDU(data=conf.param_file_contents)
+        hdu_list = fits.HDUList([prim_hdu, hdu])
+        hdu_list.writeto(output_file, clobber=True)
 
     if comm.comm_world.rank == 0:
         log.info('pointings have been created successfully')
