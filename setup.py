@@ -4,9 +4,8 @@ from numpy.distutils.core import setup, Extension
 from numpy.distutils.misc_util import Configuration
 
 NAME = 'create_timelines'
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 DESCRIPTION = 'Create timelines using TOAST'
-FORTRAN2003_FLAG = '-std=f2003'
 
 
 # Utility function to read the README file.
@@ -16,10 +15,6 @@ def read(fname):
 
 
 def configuration(parent_package='', top_path=None):
-    extensions = [Extension('quat_to_pointings',
-                            sources=['quat_to_pointings.f90'],
-                            extra_f90_compile_args=[FORTRAN2003_FLAG])]
-
     config = Configuration(NAME, parent_package, top_path,
                            version=VERSION,
                            description=DESCRIPTION,
@@ -28,8 +23,7 @@ def configuration(parent_package='', top_path=None):
                            license='MIT',
                            url='https://github.com/ziotom78/create_timelines',
                            long_description=read('README.md'),
-                           requires=['numpy', 'healpy', 'astropy', 'toast'],
-                           ext_modules=extensions)
+                           requires=['numpy', 'healpy', 'astropy', 'toast'])
     return config
 
 

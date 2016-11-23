@@ -19,6 +19,7 @@ import dipole as dip
 import quat_to_pointings as qp
 import toast
 import toast.tod as tt
+import toast.tod.qarray as qa
 
 __version__ = '0.0.2'
 
@@ -33,7 +34,6 @@ Detector = namedtuple('Detector',
                        'net',
                        'alpha',
                        'fknee_Hz',
-                       'fwhm_arcmin',
                        'polarisation_angle_deg',
                        'gain',
                        'quat'])
@@ -80,7 +80,6 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
                                       polarisation_angle_deg=cur_det.getfloat('polarisation_angle_deg', 0.0),
                                       alpha=cur_det.getfloat('alpha'),
                                       fknee_Hz=cur_det.getfloat('fknee_Hz'),
-                                      fwhm_arcmin=cur_det.getfloat('fwhm_arcmin'),
                                       gain=cur_det.getfloat('gain_V_over_K'),
                                       quat=parse_vector(cur_det.get('quat'))))
 
@@ -232,9 +231,8 @@ def main(parameter_file, outdir):
 
     # simulate noise
 
-    if noise:
-        nse = tt.OpSimNoise(stream=0)
-        nse.exec(data)
+    nse = tt.OpSimNoise(stream=0)
+    nse.exec(data)
 
     comm.comm_world.barrier()
 
@@ -244,7 +242,7 @@ def main(parameter_file, outdir):
     # pointing at a later stage, we need to set this to False
     # and run at higher concurrency.
 
-    pointing = tt.OpPointingHpix(nside=64,
+    pointing = tt.OpPointingHpix(nside=128,
                                  nest=True,
                                  mode='IQU',
                                  hwprpm=conf.hwp_rpm,
@@ -267,7 +265,7 @@ def main(parameter_file, outdir):
         noise = data.obs[0]['tod'].cache.reference('noise_{0}'.format(det.name))
         quaternions = tod.read_pntg(detector=det.name)
 
-        axes, psi = qp.quaternion_to_axis_angle(quaternions)
+        axes, psi = qa.to_axisangle(quaternions)
         psi += np.deg2rad(det.polarisation_angle_deg)
 
         theta, phi = healpy.vec2ang(axes)
@@ -321,7 +319,6 @@ def main(parameter_file, outdir):
         hdu.header['LASTT'] = (times[-1], 'Time of the last sample [s]')
         hdu.header['GAIN'] = (det.gain, 'Detector gain [V/K]')
         hdu.header['NAME'] = (det.name, 'Name of the detector')
-        hdu.header['FWHM'] = (det.fwhm_arcmin, 'Beam FWHM [arcmin]')
         hdu.header['VERSION'] = (__version__,
                                  'Version of the code used to create '
                                  'this file')
