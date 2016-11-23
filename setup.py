@@ -23,7 +23,7 @@ def configuration(parent_package='', top_path=None):
                            license='MIT',
                            url='https://github.com/ziotom78/create_timelines',
                            long_description=read('README.md'),
-                           requires=['numpy', 'healpy', 'astropy', 'toast'])
+                           requires=['numpy', 'healpy', 'astropy', 'toast', 'quaternionarray'])
     return config
 
 
