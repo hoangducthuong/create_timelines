@@ -4,7 +4,7 @@ from numpy.distutils.core import setup, Extension
 from numpy.distutils.misc_util import Configuration
 
 NAME = 'create_timelines'
-VERSION = '0.2.0'
+VERSION = '0.3.0'
 DESCRIPTION = 'Create timelines using TOAST'
 
 

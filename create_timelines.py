@@ -20,7 +20,7 @@ import toast
 import toast.tod as tt
 import toast.tod.qarray as qa
 
-__version__ = '0.0.2'
+__version__ = '0.3.0'
 
 # Constantly slewing precession axis
 DEG_ANGLE_PER_DAY = 360.0 / 365.25
