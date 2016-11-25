@@ -16,7 +16,6 @@ import astropy.io.fits as fits
 import healpy
 import numpy as np  # typing: ignore
 import dipole as dip
-import quat_to_pointings as qp
 import toast
 import toast.tod as tt
 import toast.tod.qarray as qa
@@ -51,6 +50,7 @@ Configuration = namedtuple('Configuration',
                             'gap_width_hours',
                             'chunks_per_obs',
                             'num_obs',
+                            'nside',
                             'sky_map',
                             'param_file_contents'])
 
@@ -104,6 +104,7 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
                                gap_width_hours=scanning.getfloat('gap_width_hours'),
                                chunks_per_obs=scanning.getint('chunks_per_observation'),
                                num_obs=scanning.getint('num_of_observations'),
+                               nside=sky_model.getint('nside', 4096),
                                sky_map=sky_model.get('sky_map'),
                                param_file_contents=param_file_contents)
     except KeyError as err:
@@ -242,8 +243,8 @@ def main(parameter_file, outdir):
     # pointing at a later stage, we need to set this to False
     # and run at higher concurrency.
 
-    pointing = tt.OpPointingHpix(nside=128,
-                                 nest=True,
+    pointing = tt.OpPointingHpix(nside=conf.nside,
+                                 nest=False,
                                  mode='IQU',
                                  hwprpm=conf.hwp_rpm,
                                  hwpstep=None,
@@ -262,17 +263,18 @@ def main(parameter_file, outdir):
         times = tod.read_times()
         flags, glflags = tod.read_flags(detector=det.name)
 
-        noise = data.obs[0]['tod'].cache.reference('noise_{0}'.format(det.name))
-        quaternions = tod.read_pntg(detector=det.name)
-
-        axes, psi = qa.to_axisangle(quaternions)
+        pixels = tod.cache.reference('pixels_{0}'.format(det.name))
+        theta, phi = healpy.pix2ang(conf.nside, pixels)
+        vect = healpy.pix2vec(conf.nside, pixels)
+        weights = tod.cache.reference('weights_{0}'.format(det.name))
+        psi = 0.5 * np.arctan2(weights[:, 2], weights[:, 1])
         psi += np.deg2rad(det.polarisation_angle_deg)
 
-        theta, phi = healpy.vec2ang(axes)
+        noise = tod.cache.reference('noise_{0}'.format(det.name))
 
         foreground_tod, dipole_tod = (healpy.get_interp_val(foreground_map,
                                                             theta, phi),
-                                      dip.get_dipole_temperature(axes.T))
+                                      dip.get_dipole_temperature(np.column_stack(vect).T))
         total_tod = det.gain * (foreground_tod + dipole_tod + noise)
         hdu = fits.BinTableHDU.from_columns([fits.Column(name='TIME',
                                                          format='D',
