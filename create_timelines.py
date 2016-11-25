@@ -214,7 +214,8 @@ def main(parameter_file, outdir):
     # Create the (single) observation
 
     ob = {} # type: Dict[str, Any]
-    ob['id'] = 'mission'
+    ob['id'] = 0
+    ob['name'] = 'mission'
     ob['tod'] = tod
     ob['intervals'] = intervals
     ob['noise'] = noise
@@ -232,7 +233,7 @@ def main(parameter_file, outdir):
 
     # simulate noise
 
-    nse = tt.OpSimNoise(stream=0)
+    nse = tt.OpSimNoise(out='noise', realization=0)
     nse.exec(data)
 
     comm.comm_world.barrier()
