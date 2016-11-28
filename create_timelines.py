@@ -250,7 +250,7 @@ def main(parameter_file, outdir):
 
     # simulate noise
 
-    nse = tt.OpSimNoise(out='noise', realization=0)
+    nse = tt.OpSimNoise(out='noise', stream=0, realization=0)
     nse.exec(data)
 
     comm.comm_world.barrier()
