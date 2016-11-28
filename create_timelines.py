@@ -120,9 +120,9 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
                                nside=sky_model.getint('nside', 4096),
                                sky_map=sky_model.get('sky_map'),
                                sky_map_hdu=int_or_str(sky_model.get('map_hdu', 1)),
-                               i_stokes=int_or_str(sky_model.get('i_stokes', 0)),
-                               q_stokes=int_or_str(sky_model.get('q_stokes', 1)),
-                               u_stokes=int_or_str(sky_model.get('u_stokes', 2)),
+                               i_column=int_or_str(sky_model.get('i_column', 0)),
+                               q_column=int_or_str(sky_model.get('q_column', 1)),
+                               u_column=int_or_str(sky_model.get('u_column', 2)),
                                param_file_contents=param_file_contents)
     except KeyError as err:
         log.error('section/key not found: %s', err)
@@ -274,7 +274,7 @@ def main(parameter_file, outdir):
     if comm.comm_world.rank == 0:
         log.info('reading map "%s"', conf.sky_map)
     foreground_map = healpy.read_map(conf.sky_map, 
-                                     field=(conf.i_stokes, conf.q_stokes, conf.u_stokes), 
+                                     field=(conf.i_column, conf.q_column, conf.u_column), 
                                      verbose=False)
 
     for det in conf.detectors:
