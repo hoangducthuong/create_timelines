@@ -52,6 +52,10 @@ Configuration = namedtuple('Configuration',
                             'num_obs',
                             'nside',
                             'sky_map',
+                            'sky_map_hdu',
+                            'i_column',
+                            'q_column',
+                            'u_column',
                             'param_file_contents'])
 
 ################################################################################
@@ -59,6 +63,15 @@ Configuration = namedtuple('Configuration',
 def parse_vector(s: str) -> List[float]:
     'Transform a vector in the form "1,2,3" into a list of integers [1, 2, 3]'
     return np.array([float(x) for x in s.split(',')])
+
+################################################################################
+
+def int_or_str(s: str) -> Union[int, str]:
+    '''Try to convert "s" into an integer. If the conversion fails, return "s".'''
+    try:
+        return int(s)
+    except ValueError:
+        return s
 
 ################################################################################
 
@@ -106,6 +119,10 @@ def build_configuration_obj(conf_file: ConfigParser) -> Configuration:
                                num_obs=scanning.getint('num_of_observations'),
                                nside=sky_model.getint('nside', 4096),
                                sky_map=sky_model.get('sky_map'),
+                               sky_map_hdu=int_or_str(sky_model.get('map_hdu', 1)),
+                               i_stokes=int_or_str(sky_model.get('i_stokes', 0)),
+                               q_stokes=int_or_str(sky_model.get('q_stokes', 1)),
+                               u_stokes=int_or_str(sky_model.get('u_stokes', 2)),
                                param_file_contents=param_file_contents)
     except KeyError as err:
         log.error('section/key not found: %s', err)
@@ -256,7 +273,9 @@ def main(parameter_file, outdir):
 
     if comm.comm_world.rank == 0:
         log.info('reading map "%s"', conf.sky_map)
-    foreground_map = healpy.read_map(conf.sky_map, verbose=False)
+    foreground_map = healpy.read_map(conf.sky_map, 
+                                     field=(conf.i_stokes, conf.q_stokes, conf.u_stokes), 
+                                     verbose=False)
 
     for det in conf.detectors:
         if comm.comm_world.rank == 0:
@@ -273,9 +292,16 @@ def main(parameter_file, outdir):
 
         noise = tod.cache.reference('noise_{0}'.format(det.name))
 
-        foreground_tod, dipole_tod = (healpy.get_interp_val(foreground_map,
-                                                            theta, phi),
-                                      dip.get_dipole_temperature(np.column_stack(vect).T))
+        # Estimate the total TOD using the formula
+        #   P = I + Q cos 2psi + U sin 2psi
+        # where Q and U are expressed in the reference frame of the detector
+        sky_i, sky_q, sky_u = [healpy.get_interp_val(foreground_map[x], theta, phi)
+                               for x in (0, 1, 2)]
+        det_q = sky_q * np.cos(2. * psi) + sky_u * np.sin(2. * psi)
+        det_u = -sky_q * np.sin(2. * psi) + sky_u * np.cos(2. * psi)
+        foreground_tod = sky_i + det_q * np.cos(2. * psi) + det_u * np.sin(2. * psi)
+
+        dipole_tod = dip.get_dipole_temperature(np.column_stack(vect).T)
         total_tod = det.gain * (foreground_tod + dipole_tod + noise)
         hdu = fits.BinTableHDU.from_columns([fits.Column(name='TIME',
                                                          format='D',
